@@ -6,6 +6,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 export default function LoginScreen({ navigation, onLoginSuccess }) {
   const colorScheme = useColorScheme();
@@ -22,6 +23,7 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
   const [focused, setFocused] = useState('');
   const cardAnim = useRef(new Animated.Value(0)).current;
   const buttonAnim = useRef(new Animated.Value(1)).current;
+  const router = useRouter();
 
   React.useEffect(() => {
     Animated.timing(cardAnim, {
@@ -37,7 +39,10 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
       Animated.timing(buttonAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
     ]).start();
     const success = await login({ username, password });
-    if (success && onLoginSuccess) onLoginSuccess();
+    if (success) {
+      if (onLoginSuccess) onLoginSuccess();
+      router.replace('/');
+    }
   };
 
   return (

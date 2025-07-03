@@ -25,7 +25,7 @@ import { TapGestureHandler, State } from 'react-native-gesture-handler';
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = width / 2 - 2;
 
-const WELLNESS_CATEGORIES = [
+export const WELLNESS_CATEGORIES = [
   { id: '1', name: 'Meditation', icon: 'leaf' },
   { id: '2', name: 'Anxiety', icon: 'heart' },
   { id: '3', name: 'Stress Relief', icon: 'sunny' },
@@ -33,6 +33,13 @@ const WELLNESS_CATEGORIES = [
   { id: '5', name: 'Sleep', icon: 'moon' },
   { id: '6', name: 'Mindfulness', icon: 'flower' },
 ];
+
+// Utility: get a random subset of an array
+function getRandomSubset(arr, n) {
+  if (!arr || arr.length === 0) return [];
+  const shuffled = arr.slice().sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, n);
+}
 
 const getVideoThumbnail = async (videoUrl, articleId, setVideoThumbs, videoThumbs) => {
   if (videoThumbs[articleId]) return videoThumbs[articleId];
@@ -107,6 +114,26 @@ function formatTimeAgo(dateString) {
   return date.toLocaleDateString();
 }
 
+// Fun illustration for empty state
+const EMPTY_ARTICLE_IMAGE = 'https://cdn-icons-png.flaticon.com/512/4076/4076549.png';
+
+function NoArticlesFound({ category }) {
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 60, paddingHorizontal: 24 }}>
+      <Image source={{ uri: EMPTY_ARTICLE_IMAGE }} style={{ width: 120, height: 120, marginBottom: 18, opacity: 0.85 }} />
+      <ThemedText style={{ fontSize: 22, fontWeight: '800', color: '#388E3C', marginBottom: 6, textAlign: 'center' }}>
+        No Articles Found
+      </ThemedText>
+      <ThemedText style={{ fontSize: 15, color: '#888', textAlign: 'center', marginBottom: 8 }}>
+        {category
+          ? `Looks like there are no articles in "${category}" yet. Why not create the first one?`
+          : 'No articles to display.'}
+      </ThemedText>
+      <Ionicons name="leaf-outline" size={38} color="#A3B18A" style={{ marginTop: 8, opacity: 0.7 }} />
+    </View>
+  );
+}
+
 export default function DiscoverScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -114,15 +141,13 @@ export default function DiscoverScreen() {
   const [loading, setLoading] = useState(true);
   const [mediaModalVisible, setMediaModalVisible] = useState(false);
   const [mediaIndex, setMediaIndex] = useState(0);
-  const [videoThumbs, setVideoThumbs] = useState({});
-  const [imageModal, setImageModal] = useState({ visible: false, url: null });
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
-  const [viewedInModal, setViewedInModal] = useState(new Set());
-  const [likedArticles, setLikedArticles] = useState(new Set());
   const [viewedArticles, setViewedArticles] = useState(new Set());
   const doubleTapRef = React.useRef();
   const [currentFileIndexes, setCurrentFileIndexes] = useState({});
   const [pausedVideos, setPausedVideos] = useState({});
+  const [featuredArticles, setFeaturedArticles] = useState([]);
+  const [likedArticles, setLikedArticles] = useState(new Set());
 
   const fetchArticles = async () => {
     setLoading(true);
@@ -143,12 +168,6 @@ export default function DiscoverScreen() {
   }, []);
 
   useEffect(() => {
-    if (mediaModalVisible && articles.length > 0) {
-      setViewedInModal(new Set());
-    }
-  }, [mediaModalVisible]);
-
-  useEffect(() => {
     (async () => {
       try {
         const storedLikes = await AsyncStorage.getItem('likedArticles');
@@ -167,41 +186,74 @@ export default function DiscoverScreen() {
     AsyncStorage.setItem('viewedArticles', JSON.stringify(Array.from(viewedArticles)));
   }, [viewedArticles]);
 
+  useEffect(() => {
+    setFeaturedArticles(getRandomSubset(articles, 7));
+  }, [articles]);
+
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     fetchArticles();
   }, []);
 
-  const featuredArticles = articles;
-  const gridArticles = articles;
+  const gridArticles = selectedCategory
+    ? articles.filter(a => {
+        const cat = WELLNESS_CATEGORIES.find(c => c.id === selectedCategory)?.name;
+        return (
+          typeof a.category === 'string' &&
+          a.category.trim().toLowerCase() === cat.trim().toLowerCase()
+        );
+      })
+    : articles;
   const videoArticles = articles.filter(a => a.files && a.files.some(f => f.type === 'video'));
 
-  const renderFeaturedArticle = ({ item }) => {
-    return (
-      <TouchableOpacity
-        style={styles.featuredStoryContainer}
-        onPress={() => openMediaModal(item)}
-        activeOpacity={0.8}
-      >
-        <ArticleThumbnail article={item} style={styles.featuredStoryImage} />
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.7)']}
-          style={styles.featuredStoryGradient}
-        >
-          <ThemedText style={styles.featuredStoryTitle}>{item.title}</ThemedText>
-          <ThemedText style={styles.featuredStoryContent} numberOfLines={2}>{item.content}</ThemedText>
-        </LinearGradient>
-      </TouchableOpacity>
-    );
+  const openMediaModal = (article) => {
+    const idx = articles.findIndex(a => a._id === article._id);
+    setMediaIndex(idx >= 0 ? idx : 0);
+    setMediaModalVisible(true);
   };
 
-  const renderCategoryChip = ({ item }) => (
+  const renderFeaturedArticle = ({ item }) => (
     <TouchableOpacity
+      style={styles.featuredStoryContainer}
+      onPress={() => openMediaModal(item)}
+      activeOpacity={0.8}
+    >
+      <ArticleThumbnail article={item} style={styles.featuredStoryImage} />
+      <LinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.7)']}
+        style={styles.featuredStoryGradient}
+      >
+        <ThemedText style={styles.featuredStoryTitle}>{item.title}</ThemedText>
+        <ThemedText style={styles.featuredStoryContent} numberOfLines={2}>{item.content}</ThemedText>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+
+  const renderCategoryFilter = () => (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesContainer}>
+    <TouchableOpacity
+        style={[
+          styles.categoryChip,
+          !selectedCategory && styles.selectedCategoryChip,
+        ]}
+        onPress={() => setSelectedCategory(null)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="apps" size={16} color={!selectedCategory ? '#FFFFFF' : '#000000'} />
+        <ThemedText style={[
+          styles.categoryText,
+          !selectedCategory && styles.selectedCategoryText,
+        ]}>All</ThemedText>
+      </TouchableOpacity>
+      {WELLNESS_CATEGORIES.map(item => (
+        <TouchableOpacity
+          key={item.id}
       style={[
         styles.categoryChip,
         selectedCategory === item.id && styles.selectedCategoryChip,
       ]}
       onPress={() => setSelectedCategory(item.id)}
+          activeOpacity={0.8}
     >
       <Ionicons
         name={item.icon}
@@ -217,39 +269,90 @@ export default function DiscoverScreen() {
         {item.name}
       </ThemedText>
     </TouchableOpacity>
+      ))}
+    </ScrollView>
   );
 
-  const renderMasonryItem = ({ item }) => {
-    return (
-      <TouchableOpacity
-        style={styles.masonryItem}
-        onPress={() => openMediaModal(item)}
-        activeOpacity={0.8}
+  const renderMasonryItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.masonryItem}
+      onPress={() => openMediaModal(item)}
+      activeOpacity={0.8}
+    >
+      <ArticleThumbnail article={item} style={[styles.masonryImage, { height: COLUMN_WIDTH * 1.2 }]} />
+      <BlurView
+        intensity={80}
+        tint="dark"
+        style={styles.masonryOverlay}
       >
-        <ArticleThumbnail article={item} style={[styles.masonryImage, { height: COLUMN_WIDTH * 1.2 }]} />
-        <BlurView
-          intensity={80}
-          tint="dark"
-          style={styles.masonryOverlay}
-        >
-          <View style={styles.masonryInfo}>
-            <View style={styles.masonryCategory}>
-              <ThemedText style={styles.masonryCategoryText}>{item.category}</ThemedText>
-            </View>
-            <View style={styles.masonryStats}>
-              <Ionicons name="heart" size={14} color="#FFFFFF" />
-              <ThemedText style={styles.masonryStatsText}>{item.likes}</ThemedText>
-            </View>
+        <View style={styles.masonryInfo}>
+          <View style={styles.masonryCategory}>
+            <ThemedText style={styles.masonryCategoryText}>{item.category}</ThemedText>
           </View>
-        </BlurView>
-      </TouchableOpacity>
-    );
-  };
+          <View style={styles.masonryStats}>
+            <Ionicons name="heart" size={14} color="#FFFFFF" />
+            <ThemedText style={styles.masonryStatsText}>{item.likes}</ThemedText>
+          </View>
+        </View>
+      </BlurView>
+    </TouchableOpacity>
+  );
 
-  const openMediaModal = (article) => {
-    const idx = articles.findIndex(a => a._id === article._id);
-    setMediaIndex(idx >= 0 ? idx : 0);
-    setMediaModalVisible(true);
+  const renderModalContent = () => {
+    if (loading) {
+      return <ActivityIndicator size="large" color="#388E3C" style={{ marginTop: 100 }} />;
+    }
+    return (
+      <View style={{ width: '100%', height: Dimensions.get('window').height, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+        {renderArticleFilesCarousel(articles[mediaIndex], mediaIndex)}
+        <View style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: 20,
+          backgroundColor: 'rgba(0,0,0,0.45)'
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Image source={{ uri: articles[mediaIndex].user?.avatar || 'https://ui-avatars.com/api/?name=User' }} style={{ width: 32, height: 32, borderRadius: 16, marginRight: 8 }} />
+            <ThemedText style={{ color: '#fff9', fontSize: 12 }}>{formatTimeAgo(articles[mediaIndex].createdAt)}</ThemedText>
+          </View>
+          <ThemedText style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 4 }}>
+            {articles[mediaIndex].title || 'Untitled'}
+          </ThemedText>
+          <ThemedText style={{ color: '#fff', fontSize: 15, marginBottom: 6 }} numberOfLines={3}>
+            {articles[mediaIndex].content || 'No content available.'}
+          </ThemedText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <View style={{
+              backgroundColor: '#fff2',
+              borderRadius: 12,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              marginRight: 12
+            }}>
+              <ThemedText style={{ color: '#fff', fontSize: 13 }}>{articles[mediaIndex].category || 'Uncategorized'}</ThemedText>
+            </View>
+            <TouchableOpacity
+              onPress={() => handleLike(articles[mediaIndex]._id)}
+              style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16 }}
+              disabled={likedArticles.has(articles[mediaIndex]._id)}
+            >
+              <Ionicons name="heart" size={22} color={likedArticles.has(articles[mediaIndex]._id) ? '#E53935' : '#fff'} />
+              <ThemedText style={{ color: '#fff', fontSize: 16, marginLeft: 4 }}>{articles[mediaIndex].likes}</ThemedText>
+            </TouchableOpacity>
+            <Ionicons name="eye" size={20} color="#fff" style={{ marginRight: 4 }} />
+            <ThemedText style={{ color: '#fff', fontSize: 15 }}>{articles[mediaIndex].views}</ThemedText>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={{ position: 'absolute', top: 40, right: 20, zIndex: 10 }}
+          onPress={() => setMediaModalVisible(false)}
+        >
+          <Ionicons name="close" size={36} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   const handleLike = async (articleId) => {
@@ -452,19 +555,14 @@ export default function DiscoverScreen() {
             />
           </View>
 
-          {/* Categories */}
-          <View style={styles.section}>
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={WELLNESS_CATEGORIES}
-              renderItem={renderCategoryChip}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.categoriesContainer}
-            />
-          </View>
+          {/* Category Filter Row (only one) */}
+          {renderCategoryFilter()}
 
           {/* Wellness Grid */}
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            {gridArticles.length === 0 ? (
+              <NoArticlesFound category={selectedCategory ? WELLNESS_CATEGORIES.find(c => c.id === selectedCategory)?.name : null} />
+            ) : (
           <MasonryList
             data={gridArticles}
             keyExtractor={(item, idx) => item._id || idx.toString()}
@@ -474,6 +572,8 @@ export default function DiscoverScreen() {
             refreshing={refreshing}
             onRefresh={onRefresh}
           />
+            )}
+          </ScrollView>
         </ScrollView>
       )}
       <Modal
@@ -503,8 +603,6 @@ export default function DiscoverScreen() {
           }).current}
           viewabilityConfig={{ itemVisiblePercentThreshold: 80 }}
           renderItem={({ item, index }) => {
-            const videoFile = item.files.find(f => f.type === 'video');
-            const imageFile = item.files.find(f => f.type === 'image');
             const liked = likedArticles.has(item._id);
             return (
               <View style={{ width: '100%', height: Dimensions.get('window').height, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
@@ -559,21 +657,6 @@ export default function DiscoverScreen() {
             );
           }}
         />
-      </Modal>
-      <Modal
-        visible={imageModal.visible}
-        transparent={true}
-        onRequestClose={() => setImageModal({ visible: false, url: null })}
-      >
-        <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-          <Image source={{ uri: imageModal.url }} style={{ width: '100%', height: '100%', resizeMode: 'contain' }} />
-          <TouchableOpacity
-            style={{ position: 'absolute', top: 40, right: 20, zIndex: 10 }}
-            onPress={() => setImageModal({ visible: false, url: null })}
-          >
-            <Ionicons name="close" size={36} color="#fff" />
-          </TouchableOpacity>
-        </View>
       </Modal>
     </ThemedView>
   );
@@ -657,6 +740,10 @@ const styles = StyleSheet.create({
   },
   selectedCategoryText: {
     color: '#FFFFFF',
+  },
+  scrollContent: {
+    paddingHorizontal: 2,
+    paddingTop: 2,
   },
   masonryContainer: {
     paddingHorizontal: 2,

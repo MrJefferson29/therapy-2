@@ -1,15 +1,23 @@
 const mongoose = require('mongoose');
 
 const appointmentSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  therapist: { type: mongoose.Schema.Types.ObjectId, ref: 'Therapist', required: true },
-  status: { type: String, enum: ['pending', 'approved', 'declined'], default: 'pending' },
-  requestedAt: { type: Date, default: Date.now },
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  meetingLink: { type: String },
+  scheduledTime: { type: Date, required: true },
+  therapist: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  client: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  status: { 
+    type: String, 
+    enum: ['pending', 'approved', 'declined', 'completed', 'cancelled'], 
+    default: 'pending' 
+  },
+  createdDate: { type: Date, default: Date.now },
   approvedAt: Date,
-  admin: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  date: Date, // Set by admin
-  zoomLink: String, // Set by admin
+  declinedAt: Date,
   notes: String,
+}, {
+  timestamps: true
 });
 
 module.exports = mongoose.model('Appointment', appointmentSchema); 

@@ -15,6 +15,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { WELLNESS_CATEGORIES } from './discover';
+import { Picker } from '@react-native-picker/picker';
 
 const API_URL = 'http://192.168.1.202:5000/article';
 
@@ -103,12 +105,19 @@ export default function CreateArticle() {
           onChangeText={setContent}
           multiline
         />
-        <TextInput
-          style={styles.input}
-          placeholder="Category"
-          value={category}
-          onChangeText={setCategory}
-        />
+        <View style={[styles.input, { padding: 0, marginBottom: 16 }]}> 
+          <Picker
+            selectedValue={category}
+            onValueChange={setCategory}
+            style={{ height: 44, width: '100%' }}
+            dropdownIconColor="#388E3C"
+          >
+            <Picker.Item label="Select Category" value="" />
+            {WELLNESS_CATEGORIES.map(cat => (
+              <Picker.Item key={cat.id} label={cat.name} value={cat.name} />
+            ))}
+          </Picker>
+        </View>
         <View style={styles.fileRow}>
           <Text style={styles.label}>Files (images/videos):</Text>
           <TouchableOpacity style={styles.addBtn} onPress={pickFiles}>

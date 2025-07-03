@@ -67,15 +67,15 @@ const subjectCards = [
   {
     key: "pause",
     icon: "leaf-outline" as const,
-    label: "Pause",
+    label: "Self care",
     color: "#2196F3",
     gradient: ["#2196F3", "#1E88E5"],
     route: "/selfCare"
   },
   {
     key: "manage",
-    icon: "heart-outline" as const,
-    label: "Health",
+    icon: "pencil-outline" as const,
+    label: "Journal",
     color: "#9C27B0",
     gradient: ["#9C27B0", "#8E24AA"],
     route: "/journal"
@@ -188,6 +188,25 @@ interface User {
   [key: string]: any;
 }
 
+// Add Therapist and Appointment types
+interface Therapist {
+  _id: string;
+  id?: string;
+  username: string;
+  email: string;
+  profileImage?: string;
+}
+
+interface Appointment {
+  _id: string;
+  title: string;
+  description: string;
+  status: string;
+  scheduledTime?: string;
+  therapist: Therapist;
+  client: Therapist;
+}
+
 export default function UnifiedIndexScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
@@ -196,7 +215,10 @@ export default function UnifiedIndexScreen() {
   const user = rawUser as User | null;
   const [quote] = useState(getRandomQuote());
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [therapists, setTherapists] = useState([]);
+  const [therapists, setTherapists] = useState<Therapist[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  const [appointmentsError, setAppointmentsError] = useState('');
 
   // All useEffect, useState, etc. go here
   useEffect(() => {
@@ -265,6 +287,25 @@ export default function UnifiedIndexScreen() {
       });
   }, []);
 
+  useEffect(() => {
+    if (!user?.token) return;
+    setAppointmentsLoading(true);
+    setAppointmentsError('');
+    fetch(`${API_URL}/appointment/my`, {
+      headers: { 'Authorization': `Bearer ${user.token}` },
+    })
+      .then(res => res.json())
+      .then(data => {
+        setAppointments(Array.isArray(data) ? data : []);
+        setAppointmentsLoading(false);
+      })
+      .catch(err => {
+        setAppointments([]);
+        setAppointmentsError('Failed to fetch appointments');
+        setAppointmentsLoading(false);
+      });
+  }, [user?.token]);
+
   // Debug: log user object
 
   // Quick Actions
@@ -291,50 +332,69 @@ export default function UnifiedIndexScreen() {
   );
 
   // MyTherapist Section
-  const renderMyTherapist = () => (
-    <View style={styles.sectionCard}>
-      <Image
-        source={{ uri: "https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=500" }}
-        style={styles.therapistHeaderImage}
-      />
-      <BlurView intensity={30} tint={colorScheme === 'dark' ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-      <View style={styles.therapistOverlay}>
+  const renderMyTherapist = () => {
+    const upcomingAppointment = getUpcomingAppointment(appointments);
 
-        <View style={styles.statusBadge}>
-          <ThemedText style={styles.statusText}>No upcoming session</ThemedText>
-        </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-          <ThemedText style={styles.sectionTitle}>Chat with a Therapist</ThemedText>
-          <TouchableOpacity onPress={() => router.push('/MyTherapist')} style={{ paddingHorizontal: 10, paddingVertical: 4 }}>
-            <ThemedText style={{ color: '#2196F3', fontWeight: 'bold' }}>See More</ThemedText>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <View style={styles.therapistsContainer}>
-        {Array.isArray(therapists) && therapists.slice(0, 2).map((t) => (
-          <TouchableOpacity
-            key={t._id || t.id}
-            style={styles.therapistCard}
-            activeOpacity={0.85}
-            onPress={() => router.push(`/chat/${t._id || t.id}`)}
-          >
-            <Image source={{ uri: t.profileImage || DEFAULT_PROFILE_IMAGES[0] }} style={styles.therapistImage} />
-            <View style={styles.therapistInfo}>
-              <ThemedText style={styles.therapistName}>{t.username}</ThemedText>
-              <ThemedText style={styles.therapistSpecialization}>{t.email}</ThemedText>
-            </View>
-            <TouchableOpacity style={styles.bookButton}>
-              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" style={{ marginRight: 4 }} />
-              <ThemedText style={styles.bookButtonText}>Chat</ThemedText>
+    return (
+      <View style={styles.sectionCard}>
+        <Image
+          source={{ uri: "https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=500" }}
+          style={styles.therapistHeaderImage}
+        />
+        <BlurView intensity={30} tint={colorScheme === 'dark' ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+        <View style={styles.therapistOverlay}>
+          <View style={styles.statusBadge}>
+            {appointmentsLoading ? (
+              <ThemedText style={styles.statusText}>Loading...</ThemedText>
+            ) : appointmentsError ? (
+              <ThemedText style={styles.statusText}>{appointmentsError}</ThemedText>
+            ) : upcomingAppointment ? (
+              <>
+                <ThemedText style={styles.statusText}>
+                  Upcoming: {upcomingAppointment.scheduledTime ? new Date(upcomingAppointment.scheduledTime).toLocaleString() : 'TBD'}
+                </ThemedText>
+                <ThemedText style={[styles.statusText, { fontSize: 13 }]}>With: {user && user.role === 'therapist'
+                  ? upcomingAppointment.client?.username
+                  : upcomingAppointment.therapist?.username}</ThemedText>
+                <ThemedText style={[styles.statusText, { fontSize: 13 }]}>Status: {upcomingAppointment.status.charAt(0).toUpperCase() + upcomingAppointment.status.slice(1)}</ThemedText>
+              </>
+            ) : (
+              <ThemedText style={styles.statusText}>No upcoming session</ThemedText>
+            )}
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <ThemedText style={styles.sectionTitle}>Chat with a Therapist</ThemedText>
+            <TouchableOpacity onPress={() => router.push('/MyTherapist')} style={{ paddingHorizontal: 10, paddingVertical: 4 }}>
+              <ThemedText style={{ color: '#2196F3', fontWeight: 'bold' }}>See More</ThemedText>
             </TouchableOpacity>
-          </TouchableOpacity>
-        ))}
-        {Array.isArray(therapists) && therapists.length === 0 && (
-          <ThemedText>No therapists found.</ThemedText>
-        )}
+          </View>
+        </View>
+        <View style={styles.therapistsContainer}>
+          {Array.isArray(therapists) && (therapists as Therapist[]).slice(0, 2).map((t: Therapist) => (
+            <TouchableOpacity
+              key={t._id || t.id}
+              style={styles.therapistCard}
+              activeOpacity={0.85}
+              onPress={() => router.push(`/chat/${t._id || t.id}`)}
+            >
+              <Image source={{ uri: t.profileImage || DEFAULT_PROFILE_IMAGES[0] }} style={styles.therapistImage} />
+              <View style={styles.therapistInfo}>
+                <ThemedText style={styles.therapistName}>{t.username}</ThemedText>
+                <ThemedText style={styles.therapistSpecialization}>{t.email}</ThemedText>
+              </View>
+              <TouchableOpacity style={styles.bookButton}>
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" style={{ marginRight: 4 }} />
+                <ThemedText style={styles.bookButtonText}>Chat</ThemedText>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          ))}
+          {Array.isArray(therapists) && therapists.length === 0 && (
+            <ThemedText>No therapists found.</ThemedText>
+          )}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   // Discover Section
   const renderFeaturedArticle = ({ item }: { item: typeof FEATURED_ARTICLES[0] }) => (
@@ -404,6 +464,22 @@ export default function UnifiedIndexScreen() {
       </BlurView>
     </TouchableOpacity>
   );
+
+  function getUpcomingAppointment(appointments: Appointment[]): Appointment | null {
+    const now = new Date();
+    // Only consider approved or pending, and scheduled in the future
+    const upcoming = appointments
+      .filter(app =>
+        (app.status === 'approved' || app.status === 'pending') &&
+        app.scheduledTime &&
+        new Date(app.scheduledTime) > now
+      )
+      .sort((a, b) => {
+        if (!a.scheduledTime || !b.scheduledTime) return 0;
+        return new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime();
+      });
+    return upcoming[0] || null;
+  }
 
   // Only after all hooks:
   if (loading || !user) {
@@ -648,6 +724,7 @@ const styles = StyleSheet.create({
   },
   bookButton: {
     backgroundColor: '#4CAF50',
+
     borderRadius: 10,
     padding: 10,
     alignItems: 'center',
@@ -766,5 +843,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
 });
+
 
 

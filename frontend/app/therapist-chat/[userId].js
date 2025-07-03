@@ -1,31 +1,35 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, TextInput, FlatList, TouchableOpacity, Text, StyleSheet, KeyboardAvoidingView, Platform, SafeAreaView, Animated, Easing } from 'react-native';
+import { View, TextInput, FlatList, TouchableOpacity, Text, StyleSheet, KeyboardAvoidingView, Platform, SafeAreaView, Animated, Easing, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import io from 'socket.io-client';
 import { useAuth } from '../../hooks/useAuth';
 import { LinearGradient } from 'expo-linear-gradient';
+import AppointmentMessage from '../../components/AppointmentMessage';
+import AppointmentApprovalModal from '../../components/AppointmentApprovalModal';
 
 const API_URL = 'http://192.168.1.202:5000';
 const socket = io(API_URL);
 
 export default function ChatWithUser() {
   const { userId } = useLocalSearchParams();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const router = useRouter();
   const [messages, setMessages] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [input, setInput] = useState('');
   const [client, setClient] = useState(null);
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
   const flatListRef = useRef(null);
-  const router = useRouter();
-  const roomId = user && userId ? [user._id, userId].sort().join('_') : '';
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const roomId = user && userId ? [user._id, userId].sort().join('_') : '';
 
   useEffect(() => {
     if (!roomId) return;
     socket.emit('joinRoom', { roomId });
-    fetch(`${API_URL}/chat/${roomId}`)
-      .then(res => res.json())
-      .then(data => setMessages(data));
+    fetchMessages();
+    fetchAppointments();
     socket.on('chatMessage', (msg) => {
       if (msg.roomId === roomId) setMessages(prev => [...prev, msg]);
     });
@@ -37,9 +41,7 @@ export default function ChatWithUser() {
 
   useEffect(() => {
     if (userId) {
-      fetch(`${API_URL}/user/${userId}`)
-        .then(res => res.json())
-        .then(data => setClient(data));
+      fetchClient();
     }
   }, [userId]);
 
@@ -56,7 +58,62 @@ export default function ChatWithUser() {
   // Scroll on new message
   useEffect(() => {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-  }, [messages]);
+  }, [messages, appointments]);
+
+  const fetchMessages = async () => {
+    try {
+      const response = await fetch(`${API_URL}/chat/${roomId}`);
+      const data = await response.json();
+      setMessages(data);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  const fetchAppointments = async () => {
+    try {
+      const response = await fetch(`${API_URL}/appointment/my`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        console.error('Appointments API error:', response.status, response.statusText);
+        setAppointments([]);
+        return;
+      }
+      
+      const data = await response.json();
+      
+      // Ensure data is an array
+      if (!Array.isArray(data)) {
+        console.error('Appointments API returned non-array data:', data);
+        setAppointments([]);
+        return;
+      }
+      
+      // Filter appointments for this specific client
+      const filteredAppointments = data.filter(app => 
+        (app.therapist._id === user._id && app.client._id === userId) ||
+        (app.client._id === user._id && app.therapist._id === userId)
+      );
+      setAppointments(filteredAppointments);
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+      setAppointments([]);
+    }
+  };
+
+  const fetchClient = async () => {
+    try {
+      const response = await fetch(`${API_URL}/user/${userId}`);
+      const data = await response.json();
+      setClient(data);
+    } catch (error) {
+      console.error('Error fetching client:', error);
+    }
+  };
 
   const sendMessage = () => {
     if (!input.trim()) return;
@@ -76,22 +133,101 @@ export default function ChatWithUser() {
     });
   };
 
-  const renderMessage = ({ item }) => (
-    <Animated.View 
-      style={[
-        styles.messageRow, 
-        item.sender === user._id ? styles.myRow : styles.theirRow,
-        { opacity: fadeAnim }
-      ]}
-    >
-      <View style={[styles.bubble, item.sender === user._id ? styles.myBubble : styles.theirBubble]}>
-        <Text style={styles.messageText}>{item.message}</Text>
-        <Text style={styles.timeText}>
-          {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      </View>
-    </Animated.View>
-  );
+  const handleApproveAppointment = (appointment) => {
+    setSelectedAppointment(appointment);
+    setShowAppointmentModal(true);
+  };
+
+  const handleDeclineAppointment = (appointment) => {
+    Alert.alert(
+      'Decline Appointment',
+      'Are you sure you want to decline this appointment?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_URL}/appointment/${appointment._id}/decline`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ notes: '' }),
+              });
+
+              if (!response.ok) {
+                throw new Error('Failed to decline appointment');
+              }
+
+              Alert.alert('Success', 'Appointment declined successfully');
+              fetchAppointments();
+            } catch (error) {
+              console.error('Error declining appointment:', error);
+              Alert.alert('Error', 'Failed to decline appointment');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAppointmentUpdated = (updatedAppointment) => {
+    setAppointments(prev => 
+      prev.map(app => 
+        app._id === updatedAppointment._id ? updatedAppointment : app
+      )
+    );
+  };
+
+  const renderMessage = ({ item }) => {
+    if (item.type === 'appointment') {
+      const appointment = appointments.find(app => app._id === item.appointmentId);
+      if (!appointment) return null;
+      
+      const isOwnMessage = appointment.therapist._id === user._id;
+      const isTherapist = user?.role === 'therapist';
+      
+      return (
+        <AppointmentMessage
+          appointment={appointment}
+          isTherapist={isTherapist}
+          onApprove={handleApproveAppointment}
+          onDecline={handleDeclineAppointment}
+          isOwnMessage={isOwnMessage}
+        />
+      );
+    }
+
+    return (
+      <Animated.View 
+        style={[
+          styles.messageRow, 
+          item.sender === user._id ? styles.myRow : styles.theirRow,
+          { opacity: fadeAnim }
+        ]}
+      >
+        <View style={[styles.bubble, item.sender === user._id ? styles.myBubble : styles.theirBubble]}>
+          <Text style={styles.messageText}>{item.message}</Text>
+          <Text style={styles.timeText}>
+            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        </View>
+      </Animated.View>
+    );
+  };
+
+  // Combine messages and appointments for display
+  const combinedMessages = [
+    ...messages.map(msg => ({ ...msg, type: 'message' })),
+    ...appointments.map(app => ({ 
+      type: 'appointment', 
+      appointmentId: app._id, 
+      timestamp: app.createdDate 
+    }))
+  ].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
   return (
     <View style={styles.container}>
@@ -120,8 +256,8 @@ export default function ChatWithUser() {
           {/* Messages */}
           <FlatList
             ref={flatListRef}
-            data={messages}
-            keyExtractor={(_, i) => i.toString()}
+            data={combinedMessages}
+            keyExtractor={(item, index) => item.type === 'appointment' ? item.appointmentId : index.toString()}
             renderItem={renderMessage}
             contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
             showsVerticalScrollIndicator={false}
@@ -152,6 +288,19 @@ export default function ChatWithUser() {
             </View>
           </View>
         </KeyboardAvoidingView>
+
+        {/* Appointment Approval Modal */}
+        <AppointmentApprovalModal
+          visible={showAppointmentModal}
+          onClose={() => {
+            setShowAppointmentModal(false);
+            setSelectedAppointment(null);
+          }}
+          appointment={selectedAppointment}
+          user={user}
+          token={token}
+          onAppointmentUpdated={handleAppointmentUpdated}
+        />
       </LinearGradient>
     </View>
   );

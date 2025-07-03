@@ -6,18 +6,23 @@ import {
   TouchableOpacity,
   Dimensions,
   Platform,
+  ScrollView,
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get("window");
-const API_URL = 'http://192.168.1.202:5000'; // Use your backend URL
+const API_URL = 'http://192.168.1.202:5000';
 
 export default function MyTherapist() {
   const colorScheme = useColorScheme();
+  const accent = '#388E3C';
+  const textColor = '#222';
   const theme = Colors[colorScheme ?? "light"];
   const [therapists, setTherapists] = useState([]);
   const router = useRouter();
@@ -33,121 +38,131 @@ export default function MyTherapist() {
   }, []);
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={[styles.card, { backgroundColor: theme.surface }]}>
-        <View style={styles.imageWrapper}>
-          <Image
-            source={{
-              uri: "https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=500",
-            }}
-            style={styles.headerImage}
-          />
-          <View style={styles.overlay}>
-            <ThemedText style={styles.title}>All Therapists</ThemedText>
-            <View style={styles.statusBadge}>
-              <ThemedText style={styles.statusText}>
-                No upcoming session
-              </ThemedText>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.therapistsContainer}>
-          {Array.isArray(therapists) && therapists.length > 0 ? (
-            therapists.map((t) => (
-              <TouchableOpacity
-                key={t._id || t.id}
-                style={[
-                  styles.therapistCard,
-                  { backgroundColor: theme.surfaceVariant },
-                ]}
-                activeOpacity={0.85}
-                onPress={() => router.push(`/chat/${t._id || t.id}`)}
-              >
-                <Image source={{ uri: t.profileImage || "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=500" }} style={styles.therapistImage} />
-                <View style={styles.therapistInfo}>
-                  <ThemedText
-                    style={[styles.therapistName, { color: theme.text }]}
-                  >
-                    {t.username}
-                  </ThemedText>
-                  <ThemedText
-                    style={[
-                      styles.therapistSpecialization,
-                      { color: theme.text + "80" },
-                    ]}
-                  >
-                    {t.email}
-                  </ThemedText>
-                </View>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <ThemedText>No therapists found.</ThemedText>
-          )}
-        </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'bottom']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={accent} />
+        </TouchableOpacity>
+        <ThemedText style={styles.headerTitle}>Therapists</ThemedText>
+        <View style={{ width: 32 }} />
       </View>
-    </ThemedView>
+      <ThemedText style={styles.headerSubtitle}>Find and chat with a therapist</ThemedText>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {Array.isArray(therapists) && therapists.length > 0 ? (
+          therapists.map((t) => (
+            <View key={t._id || t.id} style={styles.card}>
+              <Image
+                source={{ uri: t.profileImage || "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=500" }}
+                style={styles.avatar}
+              />
+              <View style={styles.infoCol}>
+                <ThemedText style={styles.name}>{t.username}</ThemedText>
+                <ThemedText style={styles.email}>{t.email}</ThemedText>
+              </View>
+              <TouchableOpacity
+                style={styles.chatBtn}
+                onPress={() => router.push(`/chat/${t._id || t.id}`)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="chatbubbles-outline" size={22} color="#fff" />
+                <ThemedText style={styles.chatBtnText}>Chat</ThemedText>
+              </TouchableOpacity>
+            </View>
+          ))
+        ) : (
+          <View style={{ alignItems: 'center', marginTop: 48 }}>
+            <Ionicons name="sad-outline" size={48} color="#bbb" />
+            <ThemedText style={{ color: '#888', fontSize: 16, marginTop: 8 }}>No therapists found.</ThemedText>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 0 },
-  card: {
-    width: "100%",
-    overflow: "hidden",
-    borderRadius: 0,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: { elevation: 4 },
-    }),
-    marginBottom: 16,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 54 : 32,
+    paddingBottom: 10,
+    paddingHorizontal: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    backgroundColor: '#fff',
   },
-  imageWrapper: {
-    width: "100%",
-    height: 200,
-    position: "relative",
-  },
-  headerImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  overlay: {
-    position: "absolute",
-    bottom: 16,
-    width: width * 0.8,
-    alignSelf: "center",
-    padding: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.4)", // slightly more white
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.6)",
-  },
-  title: { fontSize: 22, fontWeight: "700", marginBottom: 8, color: "#2196F3" }, // dark green
-  statusBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+  backBtn: {
+    backgroundColor: 'rgba(56,142,60,0.08)',
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.6)",
+    padding: 7,
   },
-  statusText: { fontSize: 15, fontWeight: "500", color: "#2196F3" }, // dark green
-  therapistsContainer: { padding: 16 },
-  therapistCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#388E3C',
+    letterSpacing: 0.5,
   },
-  therapistImage: { width: 60, height: 60, borderRadius: 30, marginRight: 12 },
-  therapistInfo: { flex: 1 },
-  therapistName: { fontSize: 16, fontWeight: "600", marginBottom: 4 },
-  therapistSpecialization: { fontSize: 14 },
+  headerSubtitle: {
+    fontSize: 15,
+    color: '#388E3C',
+    fontWeight: '600',
+    marginLeft: 18,
+    marginBottom: 8,
+    marginTop: 2,
+  },
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingBottom: 24,
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FAFAF7',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  avatar: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    marginRight: 16,
+    backgroundColor: '#e0e0e0',
+  },
+  infoCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  name: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#222',
+    marginBottom: 2,
+  },
+  email: {
+    fontSize: 14,
+    color: '#888',
+  },
+  chatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#388E3C',
+    borderRadius: 18,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginLeft: 10,
+  },
+  chatBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+    marginLeft: 6,
+  },
 });

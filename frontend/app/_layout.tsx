@@ -12,11 +12,12 @@ import "react-native-reanimated";
 import { View, StyleSheet, Platform } from "react-native";
 import React, { ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { Colors } from "@/constants/Colors";
 import AuthNavigator from '../navigation/AuthNavigator';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth, AuthProvider } from '../hooks/useAuth';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -40,7 +41,11 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <RootLayoutWithAuth />
+      <SafeAreaProvider>
+        <AuthProvider>
+          <RootLayoutWithAuth />
+        </AuthProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
@@ -52,7 +57,7 @@ function RootLayoutWithAuth() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }} edges={['top', 'bottom', 'left', 'right']}>
         <View style={[styles.statusBarBackground, { backgroundColor: theme.background }]} />
         {user ? (
           <Stack screenOptions={{ headerShown: false }}>
@@ -73,7 +78,7 @@ function RootLayoutWithAuth() {
           <AuthNavigator />
         )}
         <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-      </View>
+      </SafeAreaView>
     </ThemeProvider>
   );
 }

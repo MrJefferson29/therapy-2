@@ -8,6 +8,16 @@ const intents = require('../intents.json'); // adjust path as needed
 const genAI = new GoogleGenerativeAI("AIzaSyAn0cFp4NCF9MGzRXT_hJUk62lycLdyrBY");
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
+// Add therapist system prompt
+const THERAPIST_SYSTEM_PROMPT = `
+You are a professional, licensed therapist AI. 
+- Only provide responses that are therapeutic, supportive, and within the scope of mental health and wellness.
+- Do NOT answer questions outside of therapy, mental health, or emotional support.
+- If a user appears to be in severe distress, crisis, or expresses thoughts of self-harm, suicide, or harming others, respond with:
+  "I'm very concerned about your safety. I strongly recommend you speak to a human mental health professional or contact an emergency service or crisis helpline immediately. Would you like me to connect you to an AI expert for further help?"
+- Never provide medical, legal, or financial advice.
+Always respond as a Therapist AI.`;
+
 function normalize(text) {
   return text
     .toLowerCase()
@@ -41,6 +51,18 @@ function matchIntent(userInput) {
     }
   }
   return null;
+}
+
+function buildTherapistPrompt(historyPrompt, userPrompt) {
+  return `${THERAPIST_SYSTEM_PROMPT}\n\n${historyPrompt}\nUser: ${userPrompt}\nAI:`;
+}
+
+function isSeverelyUnstable(input) {
+  const crisisKeywords = [
+    'suicide', 'kill myself', 'end my life', 'hurt myself', 'self-harm', "can't go on", 'want to die', 'homicide', 'kill someone', 'hurt others', 'take my life', 'ending it all', 'no reason to live', 'give up on life', 'ending my life', 'wish I was dead', 'wish to die', 'wish to end it all', 'overdose', 'cut myself', 'jump off', 'hang myself', 'shoot myself', 'stab myself', 'die', 'depressed to death', 'life is pointless', 'life is meaningless', 'worthless', 'hopeless', 'helpless', 'crisis', 'emergency', 'can\'t cope', 'can\'t handle', 'can\'t take it anymore'
+  ];
+  const normalized = input.toLowerCase();
+  return crisisKeywords.some(word => normalized.includes(word));
 }
 
 const startSession = async (req, res) => {
@@ -98,11 +120,26 @@ const generateContent = async (req, res) => {
       historyPrompt += `User: ${msg.prompt}\nAI: ${msg.response}\n`;
     });
     // Add the new user message
-    historyPrompt += `User: ${prompt}\nAI:`;
+    // historyPrompt += `User: ${prompt}\nAI:`; // replaced below
+
+    // Check for severe instability
+    if (isSeverelyUnstable(prompt)) {
+      const crisisResponse = "I'm very concerned about your safety. I strongly recommend you speak to a human mental health professional or contact an emergency service or crisis helpline immediately. Would you like me to connect you to an AI expert for further help?";
+      // Optionally save to DB
+      const newAiEntry = new Ai({
+        prompt: prompt,
+        response: crisisResponse,
+        session: sessionId,
+      });
+      await newAiEntry.save();
+      return res.json({ text: crisisResponse, sessionId });
+    }
+
+    // Build the therapist prompt
+    const fullPrompt = buildTherapistPrompt(historyPrompt, prompt);
 
     const matchedResponse = matchIntent(prompt);
     if (matchedResponse) {
-      // Save to DB as usual if you want
       const newAiEntry = new Ai({
         prompt: prompt,
         response: matchedResponse,
@@ -112,8 +149,8 @@ const generateContent = async (req, res) => {
       return res.json({ text: matchedResponse, sessionId });
     }
 
-    // Generate the AI response using the full conversation history
-    const result = await model.generateContent(historyPrompt);
+    // Generate the AI response using the full conversation history and therapist system prompt
+    const result = await model.generateContent(fullPrompt);
     const generatedText = await result.response.text();
 
     if (generatedText) {

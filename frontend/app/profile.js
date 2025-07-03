@@ -20,6 +20,7 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import { useAuth } from '../hooks/useAuth';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const DEFAULT_PROFILE_IMAGES = [
   "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=facearea&w=256&h=256&facepad=2",
@@ -252,6 +253,7 @@ export default function Profile() {
   const styles = getInstagramProfileStyles({ accent, textColor, errorColor });
   const router = useRouter();
   const { user, getProfile, loading, logout, token } = useAuth();
+  console.log('DEBUG: user object in Profile screen:', user);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editUsername, setEditUsername] = useState('');
   const [editEmail, setEditEmail] = useState('');
@@ -263,6 +265,10 @@ export default function Profile() {
   const [userMoods, setUserMoods] = useState([]);
   const [userMoodCount, setUserMoodCount] = useState(0);
   const [journalMoods, setJournalMoods] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [appointmentsCount, setAppointmentsCount] = useState(0);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  const [appointmentsError, setAppointmentsError] = useState('');
 
   React.useEffect(() => {
     (async () => {
@@ -318,13 +324,39 @@ export default function Profile() {
     }
   };
 
-  // Fetch all user data (profile, moods, journals) on mount when user is available
+  // Fetch all appointments for the user (client or therapist)
+  const fetchAppointments = async () => {
+    if (!token) return;
+    setAppointmentsLoading(true);
+    setAppointmentsError('');
+    try {
+      const res = await fetch('http://192.168.1.202:5000/appointment/my', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setAppointments(data);
+        setAppointmentsCount(data.length);
+      } else {
+        setAppointments([]);
+        setAppointmentsCount(0);
+      }
+    } catch (e) {
+      setAppointments([]);
+      setAppointmentsCount(0);
+      setAppointmentsError('Failed to fetch appointments');
+    }
+    setAppointmentsLoading(false);
+  };
+
+  // Fetch all user data (profile, moods, journals, appointments) on mount when user is available
   React.useEffect(() => {
-    if (user) {
+    if (user && token) {
       fetchUserMoods(user._id || user.id);
       fetchUserJournals(user._id || user.id);
+      fetchAppointments();
     }
-  }, [user]);
+  }, [user, token]);
 
   // Merge moods from mood logs and journals, sort by date descending, deduplicate by mood+date
   const mergedMoods = React.useMemo(() => {
@@ -346,7 +378,7 @@ export default function Profile() {
   // Example stats (replace with real data if available)
   const stats = [
     { label: 'Journal', value: user?.journalCount || 0 },
-    { label: 'sessions', value: user?.appointmentsCount || 0 },
+    { label: 'Sessions', value: appointmentsCount },
     { label: 'Mood', value: userMoodCount },
   ];
 
@@ -477,167 +509,234 @@ export default function Profile() {
 
   // --- Render ---
   return (
-    <ThemedView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={26} color={accent} />
-        </TouchableOpacity>
-      </View>
-      {/* Profile Row */}
-      <View style={styles.profileRow}>
-        <Image source={{ uri: user.profileImage || user.images?.[0] }} style={styles.avatar} />
-        <View style={styles.profileInfo}>
-          <View style={styles.usernameRow}>
-            <ThemedText style={styles.username}>{user.username}</ThemedText>
-            <TouchableOpacity style={styles.editBtn} onPress={openEditModal}>
-              <ThemedText style={styles.editBtnText}>Edit Profile</ThemedText>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'bottom']}>
+      <ThemedView style={styles.container}>
+        {/* Header Row: Go Back, Title, Add Article (admin/therapist), Logout */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 8 }}>
+          {/* Go Back Button */}
+          <TouchableOpacity
+            onPress={() => {
+              try {
+                router.back();
+                // Fallback: after a short delay, go home if still on profile
+                setTimeout(() => {
+                  if (window && window.location && window.location.pathname.includes('profile')) {
+                    router.replace('/');
+                  }
+                }, 200);
+              } catch {
+                router.replace('/');
+              }
+            }}
+            style={{ padding: 6, borderRadius: 18, backgroundColor: 'rgba(56,142,60,0.08)', marginRight: 6 }}
+          >
+            <Ionicons name="arrow-back" size={24} color={accent} />
+          </TouchableOpacity>
+          {/* Title */}
+          <ThemedText style={{ fontSize: 22, fontWeight: '800', color: accent, flex: 1, textAlign: 'center', marginLeft: -30 }}>Profile</ThemedText>
+          {/* Add Article Button (admin/therapist only) */}
+          {(user.role === 'admin' || user.role === 'therapist') && (
+            <TouchableOpacity
+              style={{ padding: 6, borderRadius: 18, backgroundColor: 'rgba(56,142,60,0.08)', marginLeft: 6 }}
+              onPress={() => router.push('/createArticle')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="add" size={24} color={accent} />
             </TouchableOpacity>
-          </View>
-          <View style={styles.statsRow}>
-            {stats.map((stat) => (
-              <View key={stat.label} style={styles.statBlock}>
-                <ThemedText style={styles.statNumber}>{stat.value}</ThemedText>
-                <ThemedText style={styles.statLabel}>{stat.label}</ThemedText>
-              </View>
-            ))}
-          </View>
+          )}
+          {/* Logout Button */}
+          <TouchableOpacity onPress={handleLogout} style={{ padding: 6, borderRadius: 18, backgroundColor: 'rgba(56,142,60,0.08)', marginLeft: 6 }}>
+            <Ionicons name="log-out-outline" size={24} color={accent} />
+          </TouchableOpacity>
         </View>
-      </View>
-      {/* Bio/Role */}
-      <ThemedText style={styles.bio}>{user.role || 'Farmer, Dreamer, Grower'}</ThemedText>
-      {/* My Chats button for therapists */}
-      {user.role === 'therapist' && (
-        <TouchableOpacity
-          style={{
-            backgroundColor: accent,
-            borderRadius: 18,
-            paddingVertical: 10,
-            paddingHorizontal: 24,
-            alignItems: 'center',
-            justifyContent: 'center',
-            alignSelf: 'center',
-            marginVertical: 10,
-            flexDirection: 'row',
-          }}
-          onPress={() => router.push('/therapist-chats')}
-        >
-          <Ionicons name="chatbubbles-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-          <ThemedText style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>My Chats</ThemedText>
-        </TouchableOpacity>
-      )}
-      {/* Tabs */}
-      <View style={styles.tabRow}>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'journal' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('journal')}
-        >
-          <ThemedText style={[styles.tabBtnText, activeTab === 'journal' && styles.tabBtnTextActive]}>Journal</ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'appointments' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('appointments')}
-        >
-          <ThemedText style={[styles.tabBtnText, activeTab === 'appointments' && styles.tabBtnTextActive]}>Appointments</ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'mood' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('mood')}
-        >
-          <ThemedText style={[styles.tabBtnText, activeTab === 'mood' && styles.tabBtnTextActive]}>Mood</ThemedText>
-        </TouchableOpacity>
-      </View>
-      {/* Tab Content */}
-      <View style={styles.tabContent}>
-        {activeTab === 'journal' && (
-          user.journals && user.journals.length > 0 ? (
-            <ScrollView style={{ width: '110%' }}>
-              {user.journals.map(journal => {
-                const mood = getMood(journal.mood);
-                return (
-                  <View key={journal._id || journal.title + journal.createdAt} style={{ marginBottom: 18, backgroundColor: '#FAFAF7', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#eee' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                      <Ionicons name={mood.icon} size={18} color={mood.color} style={{ marginRight: 8 }} />
-                      <ThemedText style={{ fontWeight: '700', fontSize: 16 }}>{journal.title}</ThemedText>
-                    </View>
-                    <ThemedText style={{ color: '#888', fontSize: 13, marginBottom: 6 }}>{mood.label}</ThemedText>
-                    <ThemedText style={{ fontSize: 15 }}>{journal.note}</ThemedText>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          ) : (
-            <ThemedText style={{ color: '#888' }}>No journal entries yet.</ThemedText>
-          )
-        )}
-        {activeTab === 'fields' && <ThemedText>Appointments managed will appear here.</ThemedText>}
-        {activeTab === 'mood' && (
-          userMoods.length > 0 ? (
-            <ScrollView style={{ width: '110%' }}>
-              {renderUserMoodsGrid()}
-            </ScrollView>
-          ) : (
-            <ThemedText style={{ color: '#888' }}>No mood logs yet.</ThemedText>
-          )
-        )}
-      </View>
-      {/* Edit Profile Modal */}
-      <Modal
-        visible={editModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setEditModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <ThemedText style={styles.modalTitle}>Edit Profile</ThemedText>
-            <TextInput
-              style={styles.modalInput}
-              value={editUsername}
-              onChangeText={setEditUsername}
-              placeholder="Username"
-              placeholderTextColor="#bbb"
-            />
-            <TextInput
-              style={styles.modalInput}
-              value={editEmail}
-              onChangeText={setEditEmail}
-              placeholder="Email"
-              placeholderTextColor="#bbb"
-              keyboardType="email-address"
-            />
-            <ThemedText style={styles.modalLabel}>Profile Image URL</ThemedText>
-            <TextInput
-              style={styles.modalInput}
-              value={editProfileImage}
-              onChangeText={setEditProfileImage}
-              placeholder="Paste image URL here or use gallery"
-              placeholderTextColor="#bbb"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity style={[styles.editBtn, { marginBottom: 10, alignSelf: 'center' }]} onPress={pickAndUploadImage} disabled={uploading}>
-              {uploading ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.editBtnText}>Pick from Gallery</ThemedText>}
-            </TouchableOpacity>
-            {editProfileImage ? (
-              <Image
-                source={{ uri: editProfileImage }}
-                style={{ width: 60, height: 60, borderRadius: 30, alignSelf: 'center', marginVertical: 10, borderWidth: 2, borderColor: accent, backgroundColor: '#eaeaea' }}
-              />
-            ) : null}
-            {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }}>
-              <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#eee' }]} onPress={() => setEditModalVisible(false)}>
-                <ThemedText style={[styles.modalButtonText, { color: textColor }]}>Cancel</ThemedText>
+        {/* Profile Row */}
+        <View style={styles.profileRow}>
+          <Image source={{ uri: user.profileImage || user.images?.[0] }} style={styles.avatar} />
+          <View style={styles.profileInfo}>
+            <View style={styles.usernameRow}>
+              <ThemedText style={styles.username}>{user.username}</ThemedText>
+              <TouchableOpacity style={styles.editBtn} onPress={openEditModal}>
+                <ThemedText style={styles.editBtnText}>Edit Profile</ThemedText>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, { backgroundColor: accent }]} onPress={handleSaveProfile} disabled={saving}>
-                {saving ? <ActivityIndicator color="#fff" /> : <ThemedText style={[styles.modalButtonText, { color: '#fff' }]}>Save</ThemedText>}
-              </TouchableOpacity>
+            </View>
+            <View style={styles.statsRow}>
+              {stats.map((stat) => (
+                <View key={stat.label} style={styles.statBlock}>
+                  <ThemedText style={styles.statNumber}>{stat.value}</ThemedText>
+                  <ThemedText style={styles.statLabel}>{stat.label}</ThemedText>
+                </View>
+              ))}
             </View>
           </View>
         </View>
-      </Modal>
-    </ThemedView>
+        {/* Role/Bio and My Chats or Quote Row */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 18, marginTop: 2, marginBottom: 10 }}>
+          <ThemedText style={styles.bio}>{user.role || 'Farmer, Dreamer, Grower'}</ThemedText>
+          {user.role === 'therapist' ? (
+            <TouchableOpacity
+              style={{
+                backgroundColor: accent,
+                borderRadius: 18,
+                paddingVertical: 8,
+                paddingHorizontal: 18,
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'row',
+              }}
+              onPress={() => router.push('/therapist-chats')}
+            >
+              <Ionicons name="chatbubbles-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+              <ThemedText style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>My Chats</ThemedText>
+            </TouchableOpacity>
+          ) : user.role === 'user' ? (
+            <ThemedText style={{ color: accent, fontWeight: '600', fontSize: 15, marginLeft: 8 }}>
+              "Every day is a fresh start."
+            </ThemedText>
+          ) : null}
+        </View>
+        {/* Tabs */}
+        <View style={styles.tabRow}>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'journal' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('journal')}
+          >
+            <ThemedText style={[styles.tabBtnText, activeTab === 'journal' && styles.tabBtnTextActive]}>Journal</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'appointments' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('appointments')}
+          >
+            <ThemedText style={[styles.tabBtnText, activeTab === 'appointments' && styles.tabBtnTextActive]}>Appointments</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'mood' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('mood')}
+          >
+            <ThemedText style={[styles.tabBtnText, activeTab === 'mood' && styles.tabBtnTextActive]}>Mood</ThemedText>
+          </TouchableOpacity>
+        </View>
+        {/* Tab Content */}
+        <View style={styles.tabContent}>
+          {activeTab === 'journal' && (
+            user.journals && user.journals.length > 0 ? (
+              <ScrollView style={{ width: '110%' }}>
+                {user.journals.map(journal => {
+                  const mood = getMood(journal.mood);
+                  return (
+                    <View key={journal._id || journal.title + journal.createdAt} style={{ marginBottom: 18, backgroundColor: '#FAFAF7', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#eee' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                        <Ionicons name={mood.icon} size={18} color={mood.color} style={{ marginRight: 8 }} />
+                        <ThemedText style={{ fontWeight: '700', fontSize: 16 }}>{journal.title}</ThemedText>
+                      </View>
+                      <ThemedText style={{ color: '#888', fontSize: 13, marginBottom: 6 }}>{mood.label}</ThemedText>
+                      <ThemedText style={{ fontSize: 15 }}>{journal.note}</ThemedText>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <ThemedText style={{ color: '#888' }}>No journal entries yet.</ThemedText>
+            )
+          )}
+          {activeTab === 'fields' && <ThemedText>Appointments managed will appear here.</ThemedText>}
+          {activeTab === 'mood' && (
+            userMoods.length > 0 ? (
+              <ScrollView style={{ width: '110%' }}>
+                {renderUserMoodsGrid()}
+              </ScrollView>
+            ) : (
+              <ThemedText style={{ color: '#888' }}>No mood logs yet.</ThemedText>
+            )
+          )}
+          {activeTab === 'appointments' && (
+            appointmentsLoading ? (
+              <ActivityIndicator size="large" color={accent} />
+            ) : appointmentsError ? (
+              <ThemedText style={{ color: errorColor }}>{appointmentsError}</ThemedText>
+            ) : appointments.length > 0 ? (
+              <ScrollView style={{ width: '110%' }}>
+                {appointments.map(app => (
+                  <View key={app._id} style={{ marginBottom: 18, backgroundColor: '#FAFAF7', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#eee' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                      <Ionicons name="calendar-outline" size={18} color={accent} style={{ marginRight: 8 }} />
+                      <ThemedText style={{ fontWeight: '700', fontSize: 16 }}>{app.title}</ThemedText>
+                    </View>
+                    <ThemedText style={{ color: '#888', fontSize: 13, marginBottom: 6 }}>{app.status ? app.status.charAt(0).toUpperCase() + app.status.slice(1) : ''}</ThemedText>
+                    <ThemedText style={{ fontSize: 15, marginBottom: 6 }}>{app.description}</ThemedText>
+                    {app.scheduledTime && (
+                      <ThemedText style={{ color: '#555', fontSize: 13 }}>
+                        Scheduled: {new Date(app.scheduledTime).toLocaleString()}
+                      </ThemedText>
+                    )}
+                    <ThemedText style={{ color: '#555', fontSize: 13, marginTop: 2 }}>
+                      Therapist: {app.therapist?.username || ''} | Client: {app.client?.username || ''}
+                    </ThemedText>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : (
+              <ThemedText style={{ color: '#888' }}>No appointments yet.</ThemedText>
+            )
+          )}
+        </View>
+        {/* Edit Profile Modal */}
+        <Modal
+          visible={editModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setEditModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <ThemedText style={styles.modalTitle}>Edit Profile</ThemedText>
+              <TextInput
+                style={styles.modalInput}
+                value={editUsername}
+                onChangeText={setEditUsername}
+                placeholder="Username"
+                placeholderTextColor="#bbb"
+              />
+              <TextInput
+                style={styles.modalInput}
+                value={editEmail}
+                onChangeText={setEditEmail}
+                placeholder="Email"
+                placeholderTextColor="#bbb"
+                keyboardType="email-address"
+              />
+              <ThemedText style={styles.modalLabel}>Profile Image URL</ThemedText>
+              <TextInput
+                style={styles.modalInput}
+                value={editProfileImage}
+                onChangeText={setEditProfileImage}
+                placeholder="Paste image URL here or use gallery"
+                placeholderTextColor="#bbb"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity style={[styles.editBtn, { marginBottom: 10, alignSelf: 'center' }]} onPress={pickAndUploadImage} disabled={uploading}>
+                {uploading ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.editBtnText}>Pick from Gallery</ThemedText>}
+              </TouchableOpacity>
+              {editProfileImage ? (
+                <Image
+                  source={{ uri: editProfileImage }}
+                  style={{ width: 60, height: 60, borderRadius: 30, alignSelf: 'center', marginVertical: 10, borderWidth: 2, borderColor: accent, backgroundColor: '#eaeaea' }}
+                />
+              ) : null}
+              {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }}>
+                <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#eee' }]} onPress={() => setEditModalVisible(false)}>
+                  <ThemedText style={[styles.modalButtonText, { color: textColor }]}>Cancel</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalButton, { backgroundColor: accent }]} onPress={handleSaveProfile} disabled={saving}>
+                  {saving ? <ActivityIndicator color="#fff" /> : <ThemedText style={[styles.modalButtonText, { color: '#fff' }]}>Save</ThemedText>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </ThemedView>
+    </SafeAreaView>
   );
 }
 

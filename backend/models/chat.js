@@ -6,6 +6,8 @@ const chatSchema = new mongoose.Schema({
   receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   message: { type: String, required: true },
   timestamp: { type: Date, default: Date.now },
+  type: { type: String, enum: ['message', 'appointment_notification', 'appointment_approved', 'appointment_declined'], default: 'message' },
+  appointmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment' },
 });
 
 module.exports = mongoose.model('Chat', chatSchema); 

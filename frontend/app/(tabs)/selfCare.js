@@ -324,40 +324,55 @@ export default function SelfCareScreen() {
     }
   };
 
-  const renderMoodTracker = () => (
-    <View style={styles.moodSection}>
-      <ThemedText style={styles.moodTitle}>How are you feeling afterrwards?</ThemedText>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.moodRow}>
-        {MOODS.map((mood) => (
+  const renderMoodTracker = () => {
+    if (!focusComplete) {
+      return (
+        <View style={styles.moodSection}>
+          <ThemedText style={styles.moodTitle}>How are you feeling afterwards?</ThemedText>
+          <View style={{ alignItems: 'center', marginVertical: 18 }}>
+            <Ionicons name="lock-closed-outline" size={36} color="#bbb" style={{ marginBottom: 8 }} />
+            <ThemedText style={{ color: '#888', fontSize: 15, textAlign: 'center' }}>
+              Complete today's focus to log your mood.
+            </ThemedText>
+          </View>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.moodSection}>
+        <ThemedText style={styles.moodTitle}>How are you feeling afterwards?</ThemedText>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.moodRow}>
+          {MOODS.map((mood) => (
+            <TouchableOpacity
+              key={mood.key}
+              style={[styles.moodButton, selectedMood === mood.key && { backgroundColor: mood.color + '33' }]}
+              onPress={() => setSelectedMood(mood.key)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name={mood.icon} size={26} color={mood.color} />
+              <ThemedText style={styles.moodLabel}>{mood.label}</ThemedText>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        {selectedMood && (
           <TouchableOpacity
-            key={mood.key}
-            style={[styles.moodButton, selectedMood === mood.key && { backgroundColor: mood.color + '33' }]}
-            onPress={() => setSelectedMood(mood.key)}
-            activeOpacity={0.8}
+            style={[styles.focusLongButton, { marginTop: 16, backgroundColor: '#388E3C' }]}
+            onPress={handleConfirmMood}
+            disabled={moodSubmitting}
+            activeOpacity={0.85}
           >
-            <Ionicons name={mood.icon} size={26} color={mood.color} />
-            <ThemedText style={styles.moodLabel}>{mood.label}</ThemedText>
+            <ThemedText style={styles.focusLongButtonText}>
+              {moodSubmitting ? 'Submitting...' : moodSuccess ? 'Mood Saved!' : 'Confirm Mood'}
+            </ThemedText>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
-      {selectedMood && (
-        <TouchableOpacity
-          style={[styles.focusLongButton, { marginTop: 16, backgroundColor: '#388E3C' }]}
-          onPress={handleConfirmMood}
-          disabled={moodSubmitting}
-          activeOpacity={0.85}
-        >
-          <ThemedText style={styles.focusLongButtonText}>
-            {moodSubmitting ? 'Submitting...' : moodSuccess ? 'Mood Saved!' : 'Confirm Mood'}
-          </ThemedText>
-        </TouchableOpacity>
-      )}
-      {moodError ? (
-        <ThemedText style={{ color: '#E53935', marginTop: 8 }}>{moodError}</ThemedText>
-      ) : null}
-      <ThemedText style={{ color: '#888', fontSize: 13, marginTop: 6, marginBottom: 2 }}>You've logged {userMoodCount} moods</ThemedText>
-    </View>
-  );
+        )}
+        {moodError ? (
+          <ThemedText style={{ color: '#E53935', marginTop: 8 }}>{moodError}</ThemedText>
+        ) : null}
+        <ThemedText style={{ color: '#888', fontSize: 13, marginTop: 6, marginBottom: 2 }}>You've logged {userMoodCount} moods</ThemedText>
+      </View>
+    );
+  };
 
   // Featured Article
   const renderFeatured = () => (
@@ -514,14 +529,6 @@ export default function SelfCareScreen() {
         {renderFooter()}
       </ScrollView>
       {renderArticleModal()}
-      {/* Floating Action Button for creating an article */}
-      <TouchableOpacity
-        style={styles.fab}
-        activeOpacity={0.85}
-        onPress={() => router.push('/createArticle')}
-      >
-        <Ionicons name="add" size={32} color="#fff" />
-      </TouchableOpacity>
     </ThemedView>
   );
 }
@@ -753,21 +760,5 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 14,
     fontWeight: '600',
-  },
-  fab: {
-    position: 'absolute',
-    right: 24,
-    bottom: 32,
-    backgroundColor: '#4CAF50',
-    borderRadius: 32,
-    width: 56,
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
   },
 });

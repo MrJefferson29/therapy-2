@@ -28,7 +28,7 @@ exports.getUserById = async (req, res) => {
 // GET /users/me
 exports.getMyProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.userId, 'username email createdAt profileImage');
+    const user = await User.findById(req.userId, 'username email createdAt profileImage role');
     if (!user) return res.status(404).json({ message: 'User not found' });
     // Get all journals authored by this user
     const journals = await Journal.find({ author: req.userId }, 'title mood note createdAt').sort({ createdAt: -1 });

@@ -1,8 +1,22 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext, createContext } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { login as apiLogin, register as apiRegister, getMyProfile } from '../api/auth';
 
-export function useAuth() {
+// Add a type for the context value
+const initialAuthContext = {
+  user: null,
+  token: null,
+  loading: false,
+  error: null,
+  login: async () => false,
+  register: async () => false,
+  logout: async () => {},
+  getProfile: async () => null,
+};
+
+const AuthContext = createContext(initialAuthContext);
+
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -27,9 +41,16 @@ export function useAuth() {
       const res = await apiLogin({ username, password });
       if (res.token && res.user) {
         setToken(res.token);
-        setUser(res.user);
         await AsyncStorage.setItem('token', res.token);
         await AsyncStorage.setItem('user', JSON.stringify(res.user));
+        // Always fetch the latest profile after login to ensure role is up to date
+        const profile = await getMyProfile(res.token);
+        if (profile && profile.username) {
+          setUser(profile);
+          await AsyncStorage.setItem('user', JSON.stringify(profile));
+        } else {
+          setUser(res.user);
+        }
         setLoading(false);
         return true;
       } else {
@@ -86,5 +107,13 @@ export function useAuth() {
     }
   }, [token]);
 
-  return { user, token, loading, error, login, register, logout, getProfile };
+  return (
+    <AuthContext.Provider value={{ user, token, loading, error, login, register, logout, getProfile }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  return useContext(AuthContext);
 } 

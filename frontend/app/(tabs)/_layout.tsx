@@ -15,16 +15,23 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
+        tabBarShowLabel: true,
+        tabBarLabelStyle: {
+          fontSize: 12,
+          color: '#222', // revert to original label color
+          fontWeight: 'bold',
+          marginBottom: 2,
+        },
         tabBarActiveTintColor: "#2E7D32",
         tabBarInactiveTintColor: theme.tabIconDefault,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarHideOnKeyboard: true,
         tabBarStyle: [
           styles.tabBar,
-          colorScheme === 'dark' ? styles.darkTabBar : styles.lightTabBar
+          colorScheme === 'dark' ? styles.darkTabBar : styles.lightTabBar,
+          { minHeight: 60, height: 60, paddingBottom: 2 }, // remove forced bg color
         ],
-        tabBarLabelStyle: styles.tabBarLabel,
+        tabBarButton: HapticTab,
+        tabBarHideOnKeyboard: true,
+        headerShown: false,
       }}
     >
       <Tabs.Screen
@@ -35,7 +42,7 @@ export default function TabLayout() {
             <MaterialCommunityIcons
               name={focused ? "view-dashboard" : "view-dashboard-outline"}
               color={color}
-              size={26}
+              size={22}
             />
           ),
         }}
@@ -48,7 +55,7 @@ export default function TabLayout() {
             <MaterialCommunityIcons
               name={focused ? "account-heart" : "account-heart-outline"}
               color={color}
-              size={26}
+              size={22}
             />
           ),
           tabBarStyle: { display: 'none' }, // hide tab bar on chat screen
@@ -62,7 +69,7 @@ export default function TabLayout() {
             <MaterialCommunityIcons
               name={focused ? "spa" : "spa-outline"}
               color={color}
-              size={26}
+              size={22}
             />
           ),
         }}
@@ -75,7 +82,7 @@ export default function TabLayout() {
             <MaterialCommunityIcons
               name={focused ? "notebook" : "notebook-outline"}
               color={color}
-              size={26}
+              size={22}
             />
           ),
         }}
