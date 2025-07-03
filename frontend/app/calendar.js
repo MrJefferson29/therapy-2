@@ -19,6 +19,7 @@ const FARMING_SCHEDULE = {
       cropType: "Tomatoes",
       tasks: [
         { time: "06:00", action: "Water plants", icon: "water", status: "pending" },
+        
         { time: "14:00", action: "Check for pests", icon: "search", status: "pending" }
       ],
       progress: 65,
