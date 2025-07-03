@@ -232,7 +232,7 @@ export default function UnifiedIndexScreen() {
   // Helper to update only the profile image
   const handleSaveProfileImage = async (img: string) => {
     try {
-      await fetch('http://192.168.1.202:5000/user/me', {
+      await fetch('https://therapy-0gme.onrender.com/user/me', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -18,7 +18,7 @@ import { useRouter } from 'expo-router';
 import { WELLNESS_CATEGORIES } from './discover';
 import { Picker } from '@react-native-picker/picker';
 
-const API_URL = 'http://192.168.1.202:5000/article';
+const API_URL = 'https://therapy-0gme.onrender.com/article';
 
 export default function CreateArticle() {
   const router = useRouter();

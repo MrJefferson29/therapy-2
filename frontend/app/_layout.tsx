@@ -18,6 +18,7 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import { Colors } from "@/constants/Colors";
 import AuthNavigator from '../navigation/AuthNavigator';
 import { useAuth, AuthProvider } from '../hooks/useAuth';
+import { LoaderProvider, useLoader } from '../components/LoaderProvider';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -40,13 +41,15 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <RootLayoutWithAuth />
-        </AuthProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <LoaderProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <AuthProvider>
+            <RootLayoutWithAuth />
+          </AuthProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </LoaderProvider>
   );
 }
 
@@ -54,6 +57,7 @@ function RootLayoutWithAuth() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
   const { user } = useAuth();
+  const { showLoader, hideLoader } = useLoader();
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>

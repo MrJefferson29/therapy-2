@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AppointmentMessage from '../../components/AppointmentMessage';
 import AppointmentApprovalModal from '../../components/AppointmentApprovalModal';
 
-const API_URL = 'http://192.168.1.202:5000';
+const API_URL = 'https://therapy-0gme.onrender.com';
 const socket = io(API_URL);
 
 export default function ChatWithUser() {

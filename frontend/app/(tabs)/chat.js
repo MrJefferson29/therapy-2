@@ -22,7 +22,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Slider from "@react-native-community/slider";
 import moment from "moment";
 
-const API_BASE_URL = "http://192.168.1.202:5000";
+const API_BASE_URL = "https://therapy-0gme.onrender.com";
 const CHAT_HISTORY_KEY = "ai_chat_history";
 const SESSION_ID_KEY = "ai_session_id";
 const TOKEN_KEY = "token";

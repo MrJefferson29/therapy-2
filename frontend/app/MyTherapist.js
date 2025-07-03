@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get("window");
-const API_URL = 'http://192.168.1.202:5000';
+const API_URL = 'https://therapy-0gme.onrender.com';
 
 export default function MyTherapist() {
   const colorScheme = useColorScheme();

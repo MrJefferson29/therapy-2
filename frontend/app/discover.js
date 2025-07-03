@@ -152,7 +152,7 @@ export default function DiscoverScreen() {
   const fetchArticles = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://192.168.1.202:5000/article');
+      const res = await fetch('https://therapy-0gme.onrender.com/article');
       const data = await res.json();
       setArticles(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -366,7 +366,7 @@ export default function DiscoverScreen() {
       prev.map(a => a._id === articleId ? { ...a, likes: (a.likes || 0) + 1 } : a)
     );
     try {
-      const res = await fetch(`http://192.168.1.202:5000/article/${articleId}/like`, { method: 'POST' });
+      const res = await fetch(`https://therapy-0gme.onrender.com/article/${articleId}/like`, { method: 'POST' });
       const data = await res.json();
       setArticles(prev =>
         prev.map(a => a._id === articleId ? { ...a, likes: data.likes } : a)
@@ -387,7 +387,7 @@ export default function DiscoverScreen() {
       prev.map(a => a._id === articleId ? { ...a, views: (a.views || 0) + 1 } : a)
     );
     try {
-      const res = await fetch(`http://192.168.1.202:5000/article/${articleId}/view`, { method: 'POST' });
+      const res = await fetch(`https://therapy-0gme.onrender.com/article/${articleId}/view`, { method: 'POST' });
       const data = await res.json();
       setArticles(prev =>
         prev.map(a => a._id === articleId ? { ...a, views: data.views } : a)

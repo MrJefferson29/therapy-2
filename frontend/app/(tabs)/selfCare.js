@@ -20,10 +20,11 @@ import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLoader } from '../../components/LoaderProvider';
 
 const { width } = Dimensions.get('window');
 
-const API_BASE_URL = 'http://192.168.1.202:5000'; // Use your backend URL
+const API_BASE_URL = 'https://therapy-0gme.onrender.com'; // Use your backend URL
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1080';
 const FEATURED_IMAGE = 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=1080';
@@ -87,13 +88,13 @@ export default function SelfCareScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState(null);
-  const [articleModalLoading, setArticleModalLoading] = useState(false);
   const [moodSubmitting, setMoodSubmitting] = useState(false);
   const [moodSuccess, setMoodSuccess] = useState(false);
   const [moodError, setMoodError] = useState('');
   const [userMoods, setUserMoods] = useState([]);
   const [userMoodCount, setUserMoodCount] = useState(0);
   const [userId, setUserId] = useState(null);
+  const { showLoader, hideLoader } = useLoader();
 
   useEffect(() => {
     fetchDailyContent();
@@ -119,6 +120,7 @@ export default function SelfCareScreen() {
 
   const fetchDailyContent = async () => {
     try {
+      showLoader('Loading your self-care...');
       const res = await fetch(`${API_BASE_URL}/ai/self-care-home`);
       const data = await res.json();
       setDaily(data);
@@ -127,6 +129,8 @@ export default function SelfCareScreen() {
       setArticles(Array.isArray(data) ? data.filter(a => a && a.title && a.content && Array.isArray(a.files)) : []);
     } catch (e) {
       setDaily(null);
+    } finally {
+      hideLoader();
     }
   };
 
@@ -402,7 +406,7 @@ export default function SelfCareScreen() {
   );
 
   const handleOpenArticleModal = async (articleId) => {
-    setArticleModalLoading(true);
+    showLoader('Loading article...');
     setArticleModal(true);
     try {
       const res = await fetch(`${API_BASE_URL}/article/${articleId}`);
@@ -411,7 +415,7 @@ export default function SelfCareScreen() {
     } catch (e) {
       setSelectedArticle(null);
     } finally {
-      setArticleModalLoading(false);
+      hideLoader();
     }
   };
 
@@ -419,9 +423,7 @@ export default function SelfCareScreen() {
     <Modal visible={articleModal} animationType="slide" transparent onRequestClose={() => setArticleModal(false)}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.18)', justifyContent: 'center', alignItems: 'center' }}>
         <View style={{ backgroundColor: '#fff', borderRadius: 18, padding: 24, width: '92%', maxHeight: '90%' }}>
-          {articleModalLoading ? (
-            <ActivityIndicator size="large" color={theme.primary} />
-          ) : selectedArticle ? (
+          {selectedArticle ? (
             <>
               <ThemedText style={{ fontWeight: '800', fontSize: 18 }}>{selectedArticle.title}</ThemedText>
               <ScrollView style={{ maxHeight: 320 }}>

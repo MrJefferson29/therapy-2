@@ -1,5 +1,5 @@
 // API Configuration
-export const API_BASE_URL = 'http://192.168.1.202:5000'; // Change this to your backend URL
+export const API_BASE_URL = 'https://therapy-0gme.onrender.com'; // Change this to your backend URL
 
 // App Configuration
 export const APP_CONFIG = {
