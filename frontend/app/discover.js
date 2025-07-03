@@ -213,21 +213,21 @@ export default function DiscoverScreen() {
   };
 
   const renderFeaturedArticle = ({ item }) => (
-    <TouchableOpacity
-      style={styles.featuredStoryContainer}
-      onPress={() => openMediaModal(item)}
-      activeOpacity={0.8}
-    >
-      <ArticleThumbnail article={item} style={styles.featuredStoryImage} />
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.7)']}
-        style={styles.featuredStoryGradient}
+      <TouchableOpacity
+        style={styles.featuredStoryContainer}
+        onPress={() => openMediaModal(item)}
+        activeOpacity={0.8}
       >
-        <ThemedText style={styles.featuredStoryTitle}>{item.title}</ThemedText>
-        <ThemedText style={styles.featuredStoryContent} numberOfLines={2}>{item.content}</ThemedText>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
+        <ArticleThumbnail article={item} style={styles.featuredStoryImage} />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.7)']}
+          style={styles.featuredStoryGradient}
+        >
+          <ThemedText style={styles.featuredStoryTitle}>{item.title}</ThemedText>
+          <ThemedText style={styles.featuredStoryContent} numberOfLines={2}>{item.content}</ThemedText>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
 
   const renderCategoryFilter = () => (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesContainer}>
@@ -274,29 +274,29 @@ export default function DiscoverScreen() {
   );
 
   const renderMasonryItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.masonryItem}
-      onPress={() => openMediaModal(item)}
-      activeOpacity={0.8}
-    >
-      <ArticleThumbnail article={item} style={[styles.masonryImage, { height: COLUMN_WIDTH * 1.2 }]} />
-      <BlurView
-        intensity={80}
-        tint="dark"
-        style={styles.masonryOverlay}
+      <TouchableOpacity
+        style={styles.masonryItem}
+        onPress={() => openMediaModal(item)}
+        activeOpacity={0.8}
       >
-        <View style={styles.masonryInfo}>
-          <View style={styles.masonryCategory}>
-            <ThemedText style={styles.masonryCategoryText}>{item.category}</ThemedText>
+        <ArticleThumbnail article={item} style={[styles.masonryImage, { height: COLUMN_WIDTH * 1.2 }]} />
+        <BlurView
+          intensity={80}
+          tint="dark"
+          style={styles.masonryOverlay}
+        >
+          <View style={styles.masonryInfo}>
+            <View style={styles.masonryCategory}>
+              <ThemedText style={styles.masonryCategoryText}>{item.category}</ThemedText>
+            </View>
+            <View style={styles.masonryStats}>
+              <Ionicons name="heart" size={14} color="#FFFFFF" />
+              <ThemedText style={styles.masonryStatsText}>{item.likes}</ThemedText>
+            </View>
           </View>
-          <View style={styles.masonryStats}>
-            <Ionicons name="heart" size={14} color="#FFFFFF" />
-            <ThemedText style={styles.masonryStatsText}>{item.likes}</ThemedText>
-          </View>
-        </View>
-      </BlurView>
-    </TouchableOpacity>
-  );
+        </BlurView>
+      </TouchableOpacity>
+    );
 
   const renderModalContent = () => {
     if (loading) {
