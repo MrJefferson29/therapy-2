@@ -261,7 +261,7 @@ export default function Chat() {
             <Ionicons name="person-circle" size={36} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Therapy Chat</Text>
+            <Text style={styles.headerTitle}>Zensui Chat</Text>
             <Text style={styles.headerSubtitle}>Your private AI session</Text>
           </View>
           <TouchableOpacity 
